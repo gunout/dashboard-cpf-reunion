@@ -15,36 +15,157 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Pako pour fallback de décompression -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+
   <style>
-    /* Styles inchangés (copiez-les de votre version précédente) */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; }
     #map { height: 100vh; width: 100%; position: absolute; top: 0; left: 0; z-index: 0; }
-    #controls { position: absolute; top: 20px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.96); padding: 18px 22px; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.22); min-width: 240px; max-height: 92vh; overflow-y: auto; backdrop-filter: blur(4px); }
-    #controls label { display: block; font-weight: 700; color: #1a3b5d; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.6px; margin: 12px 0 4px 0; }
+
+    #controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.96);
+      padding: 18px 22px;
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.22);
+      min-width: 240px;
+      max-height: 92vh;
+      overflow-y: auto;
+      backdrop-filter: blur(4px);
+    }
+    #controls label {
+      display: block;
+      font-weight: 700;
+      color: #1a3b5d;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin: 12px 0 4px 0;
+    }
     #controls label:first-of-type { margin-top: 0; }
-    #controls select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #d0d7de; font-size: 0.9rem; background: #fafbfc; }
+    #controls select {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #d0d7de;
+      font-size: 0.9rem;
+      background: #fafbfc;
+    }
     .ctrl-hint { font-size: 0.7rem; color: #6b7a8a; margin-top: 2px; }
     .ctrl-divider { border: none; border-top: 1px solid #e9edf2; margin: 12px 0; }
-    #legend-container { position: absolute; bottom: 30px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 14px 18px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.13); border-left: 5px solid #2a6f97; display: none; font-size: 0.82rem; max-height: 55vh; overflow-y: auto; min-width: 140px; }
+
+    #legend-container {
+      position: absolute;
+      bottom: 30px;
+      right: 20px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding: 14px 18px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.13);
+      border-left: 5px solid #2a6f97;
+      display: none;
+      font-size: 0.82rem;
+      max-height: 55vh;
+      overflow-y: auto;
+      min-width: 140px;
+    }
     #legend-container h4 { margin: 0 0 8px 0; font-size: 0.85rem; color: #1a3b5d; }
     .legend-item { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
     .color-box { width: 20px; height: 20px; border-radius: 4px; border: 1px solid #bbb; flex-shrink: 0; }
-    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background: rgba(0,0,0,0.78); color: #fff; padding: 20px 40px; border-radius: 60px; display: flex; align-items: center; gap: 18px; font-size: 1.1rem; backdrop-filter: blur(4px); }
-    .spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.25); border-top: 3px solid #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2000;
+      background: rgba(0,0,0,0.78);
+      color: #fff;
+      padding: 20px 40px;
+      border-radius: 60px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-size: 1.1rem;
+      backdrop-filter: blur(4px);
+    }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255,255,255,0.25);
+      border-top: 3px solid #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
-    #error-msg { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1500; background: #dc3545; color: #fff; padding: 12px 28px; border-radius: 10px; display: none; text-align: center; max-width: 85%; box-shadow: 0 6px 18px rgba(0,0,0,0.2); font-weight: 500; }
+
+    #error-msg {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1500;
+      background: #dc3545;
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 10px;
+      display: none;
+      text-align: center;
+      max-width: 85%;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+      font-weight: 500;
+    }
+
     .leaflet-popup-content { font-size: 0.85rem; min-width: 220px; max-width: 300px; }
     .popup-row { display: flex; justify-content: space-between; padding: 2px 0; gap: 12px; }
     .popup-row .label { color: #4a5d6e; }
     .popup-row .value { font-weight: 600; color: #0b2a41; text-align: right; }
-    #kpi-panel { position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 14px 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.13); backdrop-filter: blur(4px); display: grid; grid-template-columns: repeat(5, auto); gap: 20px 30px; font-size: 0.9rem; border-left: 5px solid #2a6f97; display: none; }
+
+    #kpi-panel {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding: 14px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.13);
+      backdrop-filter: blur(4px);
+      display: grid;
+      grid-template-columns: repeat(5, auto);
+      gap: 20px 30px;
+      font-size: 0.9rem;
+      border-left: 5px solid #2a6f97;
+      display: none;
+    }
     #kpi-panel .kpi-item { display: flex; flex-direction: column; }
     #kpi-panel .kpi-label { font-size: 0.65rem; text-transform: uppercase; color: #6b7a8a; letter-spacing: 0.5px; }
     #kpi-panel .kpi-value { font-size: 1.3rem; font-weight: 700; color: #1a3b5d; }
-    #graph-panel { position: absolute; bottom: 100px; left: 20px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.13); backdrop-filter: blur(4px); width: 400px; max-height: 45vh; overflow-y: auto; display: none; border-left: 5px solid #2a6f97; }
+
+    #graph-panel {
+      position: absolute;
+      bottom: 100px;
+      left: 20px;
+      z-index: 1000;
+      background: rgba(255,255,255,0.95);
+      padding: 16px 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.13);
+      backdrop-filter: blur(4px);
+      width: 400px;
+      max-height: 45vh;
+      overflow-y: auto;
+      display: none;
+      border-left: 5px solid #2a6f97;
+    }
     #graph-panel h4 { margin: 0 0 10px 0; color: #1a3b5d; font-size: 0.9rem; }
     #graph-panel canvas { width: 100% !important; height: auto !important; max-height: 180px; }
+
     @media (max-width: 768px) {
       #controls { min-width: 160px; padding: 12px 14px; top: 10px; right: 10px; }
       #kpi-panel { grid-template-columns: repeat(2, auto); gap: 10px 20px; padding: 12px 16px; bottom: 10px; left: 10px; }
@@ -110,9 +231,9 @@
 
   <script>
     // ================================================================
-    // 1. DONNÉES DES COMMUNES (CORRIGÉES)
+    // 1. LISTE OFFICIELLE DES 24 COMMUNES DE LA RÉUNION
     // ================================================================
-const COMMUNES_DATA = {
+  const COMMUNES_DATA = {
   '97401': { nom: 'Les Avirons', cp: '97425' },
   '97402': { nom: 'Bras-Panon', cp: '97412' },
   '97403': { nom: "Entre Deux", cp: '97427' },
@@ -148,7 +269,7 @@ const COMMUNES_DATA = {
     const COMMUNE_CODES = Object.keys(COMMUNES_DATA).sort();
 
     // ================================================================
-    // 2. STATISTIQUES IMMOBILIÈRES (DVF simulée)
+    // 2. STATISTIQUES IMMOBILIÈRES (DVF simulée – cohérentes avec la réalité)
     // ================================================================
     const STATS_IMMO = {
       '97401': { prix_m2_moyen: 2800, nb_transactions: 120, surface_moyenne: 85, prix_median: 210000 },
@@ -203,6 +324,7 @@ const COMMUNES_DATA = {
       document.getElementById('loading').style.display = 'none';
     }
 
+    // ----- Fonction de chargement avec décompression automatique .gz -----
     async function fetchJSON(url) {
       try {
         const resp = await fetch(url);
@@ -210,6 +332,31 @@ const COMMUNES_DATA = {
           console.warn(`❌ Échec : ${url} (status ${resp.status})`);
           return null;
         }
+        // Si l'URL se termine par .gz, on décompresse
+        if (url.endsWith('.gz')) {
+          const arrayBuffer = await resp.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          // Essayer DecompressionStream (natif)
+          try {
+            if (typeof DecompressionStream !== 'undefined') {
+              const ds = new DecompressionStream('gzip');
+              const stream = new Blob([bytes]).stream().pipeThrough(ds);
+              const text = await new Response(stream).text();
+              return JSON.parse(text);
+            }
+          } catch (e) {
+            console.warn('DecompressionStream échoué, fallback pako', e);
+          }
+          // Fallback avec pako
+          try {
+            const decompressed = pako.ungzip(bytes, { to: 'string' });
+            return JSON.parse(decompressed);
+          } catch (e2) {
+            console.warn('pako échoué', e2);
+            return null;
+          }
+        }
+        // Fichier JSON classique
         return await resp.json();
       } catch (e) {
         console.warn(`❌ Erreur pour ${url} :`, e);
@@ -217,6 +364,7 @@ const COMMUNES_DATA = {
       }
     }
 
+    // Extraction d'un point représentatif (centroïde du polygone)
     function getParcelPoint(feature) {
       const geom = feature.geometry;
       if (!geom) return null;
@@ -274,7 +422,7 @@ const COMMUNES_DATA = {
     }
 
     // ================================================================
-    // 5. GÉNÉRATION DES TRANSACTIONS
+    // 5. GÉNÉRATION DES TRANSACTIONS (DVF simulée)
     // ================================================================
     function generateTransactions(code, points, stat) {
       if (!points || points.length === 0) return [];
@@ -302,7 +450,7 @@ const COMMUNES_DATA = {
     }
 
     // ================================================================
-    // 6. CHARGEMENT DES DONNÉES
+    // 6. CHARGEMENT DES DONNÉES (fichiers .json.gz)
     // ================================================================
     let currentParcelPoints = [];
     let currentTransactions = [];
@@ -312,8 +460,9 @@ const COMMUNES_DATA = {
         document.getElementById('loading').style.display = 'flex';
         document.getElementById('error-msg').style.display = 'none';
 
-        const baseParcelles = `data/communes_974/parcelles-${code}.json`;
-        const baseBatiments = `data/communes_974_batiments/batiments-${code}.json`;
+        // Chemins vers les fichiers compressés .gz
+        const baseParcelles = `data/communes_974/parcelles-${code}.json.gz`;
+        const baseBatiments = `data/communes_974_batiments/batiments-${code}.json.gz`;
 
         const [parcellesData, batimentsData] = await Promise.all([
           fetchJSON(baseParcelles),
@@ -566,6 +715,7 @@ const COMMUNES_DATA = {
         }
       });
 
+      // Charger Saint-Denis par défaut
       select.value = '97411';
       loadCommune('97411');
     })();
