@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🏝️ Dashboard Cadastre & Immobilier – La Réunion</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Styles inchangés (copiez-les de votre version précédente) */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; }
+    #map { height: 100vh; width: 100%; position: absolute; top: 0; left: 0; z-index: 0; }
+    #controls { position: absolute; top: 20px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.96); padding: 18px 22px; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.22); min-width: 240px; max-height: 92vh; overflow-y: auto; backdrop-filter: blur(4px); }
+    #controls label { display: block; font-weight: 700; color: #1a3b5d; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.6px; margin: 12px 0 4px 0; }
+    #controls label:first-of-type { margin-top: 0; }
+    #controls select { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #d0d7de; font-size: 0.9rem; background: #fafbfc; }
+    .ctrl-hint { font-size: 0.7rem; color: #6b7a8a; margin-top: 2px; }
+    .ctrl-divider { border: none; border-top: 1px solid #e9edf2; margin: 12px 0; }
+    #legend-container { position: absolute; bottom: 30px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 14px 18px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.13); border-left: 5px solid #2a6f97; display: none; font-size: 0.82rem; max-height: 55vh; overflow-y: auto; min-width: 140px; }
+    #legend-container h4 { margin: 0 0 8px 0; font-size: 0.85rem; color: #1a3b5d; }
+    .legend-item { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+    .color-box { width: 20px; height: 20px; border-radius: 4px; border: 1px solid #bbb; flex-shrink: 0; }
+    #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2000; background: rgba(0,0,0,0.78); color: #fff; padding: 20px 40px; border-radius: 60px; display: flex; align-items: center; gap: 18px; font-size: 1.1rem; backdrop-filter: blur(4px); }
+    .spinner { width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.25); border-top: 3px solid #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #error-msg { position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 1500; background: #dc3545; color: #fff; padding: 12px 28px; border-radius: 10px; display: none; text-align: center; max-width: 85%; box-shadow: 0 6px 18px rgba(0,0,0,0.2); font-weight: 500; }
+    .leaflet-popup-content { font-size: 0.85rem; min-width: 220px; max-width: 300px; }
+    .popup-row { display: flex; justify-content: space-between; padding: 2px 0; gap: 12px; }
+    .popup-row .label { color: #4a5d6e; }
+    .popup-row .value { font-weight: 600; color: #0b2a41; text-align: right; }
+    #kpi-panel { position: absolute; bottom: 20px; left: 20px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 14px 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.13); backdrop-filter: blur(4px); display: grid; grid-template-columns: repeat(5, auto); gap: 20px 30px; font-size: 0.9rem; border-left: 5px solid #2a6f97; display: none; }
+    #kpi-panel .kpi-item { display: flex; flex-direction: column; }
+    #kpi-panel .kpi-label { font-size: 0.65rem; text-transform: uppercase; color: #6b7a8a; letter-spacing: 0.5px; }
+    #kpi-panel .kpi-value { font-size: 1.3rem; font-weight: 700; color: #1a3b5d; }
+    #graph-panel { position: absolute; bottom: 100px; left: 20px; z-index: 1000; background: rgba(255,255,255,0.95); padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.13); backdrop-filter: blur(4px); width: 400px; max-height: 45vh; overflow-y: auto; display: none; border-left: 5px solid #2a6f97; }
+    #graph-panel h4 { margin: 0 0 10px 0; color: #1a3b5d; font-size: 0.9rem; }
+    #graph-panel canvas { width: 100% !important; height: auto !important; max-height: 180px; }
+    @media (max-width: 768px) {
+      #controls { min-width: 160px; padding: 12px 14px; top: 10px; right: 10px; }
+      #kpi-panel { grid-template-columns: repeat(2, auto); gap: 10px 20px; padding: 12px 16px; bottom: 10px; left: 10px; }
+      #graph-panel { width: 280px; left: 10px; bottom: 80px; padding: 12px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading"><div class="spinner"></div><span>Chargement des données…</span></div>
+  <div id="error-msg"></div>
+  <div id="map"></div>
+
+  <div id="controls">
+    <label for="communeSelect">🏘️ Commune (La Réunion)</label>
+    <select id="communeSelect">
+      <option value="">Chargement des communes…</option>
+    </select>
+    <div class="ctrl-hint">Affiche parcelles, bâtiments et transactions</div>
+
+    <hr class="ctrl-divider" />
+
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+      <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 400; color: #1a3b5d; text-transform: none;">
+        <input type="checkbox" id="showParcelles" checked /> Parcelles
+      </label>
+      <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 400; color: #1a3b5d; text-transform: none;">
+        <input type="checkbox" id="showBatiments" checked /> Bâtiments
+      </label>
+      <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 400; color: #1a3b5d; text-transform: none;">
+        <input type="checkbox" id="showTransactions" checked /> Transactions
+      </label>
+    </div>
+
+    <hr class="ctrl-divider" />
+
+    <div class="ctrl-hint" style="margin-top:6px;">
+      <span id="parcelleCount" style="font-weight:600;">0</span> parcelles &nbsp;|&nbsp;
+      <span id="batimentCount" style="font-weight:600;">0</span> bâtiments &nbsp;|&nbsp;
+      <span id="transactionCount" style="font-weight:600;">0</span> transactions
+    </div>
+  </div>
+
+  <div id="legend-container">
+    <h4>Légende</h4>
+    <div class="legend-item"><div class="color-box" style="background:#9e9e9e;"></div><span>Parcelle</span></div>
+    <div class="legend-item"><div class="color-box" style="background:#1e88e5; border-radius:50%; width:12px; height:12px;"></div><span>Bâtiment</span></div>
+    <div class="legend-item"><div class="color-box" style="background:#e74c3c; border-radius:50%; width:12px; height:12px;"></div><span>Transaction DVF</span></div>
+  </div>
+
+  <div id="kpi-panel">
+    <div class="kpi-item"><span class="kpi-label">Prix moyen / m²</span><span class="kpi-value" id="kpi-prix-m2">—</span></div>
+    <div class="kpi-item"><span class="kpi-label">Transactions</span><span class="kpi-value" id="kpi-transactions">—</span></div>
+    <div class="kpi-item"><span class="kpi-label">Surface moy. vente</span><span class="kpi-value" id="kpi-surf-vente">—</span></div>
+    <div class="kpi-item"><span class="kpi-label">Prix médian</span><span class="kpi-value" id="kpi-prix-median">—</span></div>
+    <div class="kpi-item"><span class="kpi-label">Nb parcelles</span><span class="kpi-value" id="kpi-nb-parcelles">—</span></div>
+  </div>
+
+  <div id="graph-panel">
+    <h4 id="graph-title">📊 Répartition des transactions par tranche de prix</h4>
+    <canvas id="chart-transactions"></canvas>
+  </div>
+
+  <script>
+    // ================================================================
+    // 1. DONNÉES DES COMMUNES (CORRIGÉES)
+    // ================================================================
+const COMMUNES_DATA = {
+  '97401': { nom: 'Les Avirons', cp: '97425' },
+  '97402': { nom: 'Bras-Panon', cp: '97412' },
+  '97403': { nom: "Entre Deux", cp: '97427' },
+  '97404': { nom: 'Etang Salé', cp: '97431' },
+  '97405': { nom: 'Petite Ile', cp: '97419' },
+  '97406': { nom: 'La Plaine des Palmistes', cp: '97420' },
+  '97407': { nom: 'Le Port', cp: '97430' },
+  '97408': { nom: 'La Possession', cp: '97426' },
+  '97409': { nom: 'Saint-André', cp: '97440' },
+  '97410': { nom: 'Saint-Benoît', cp: '97470' },
+  '97411': { nom: 'Saint-Denis', cp: '97400' },
+  '97412': { nom: 'Saint-Joseph', cp: '97438' },
+  '97413': { nom: 'Sainte-Leu', cp: '97439' },
+  '97414': { nom: 'Sainte-Louis', cp: '97441' },
+  '97415': { nom: 'Saint-Joseph', cp: '97480' },
+  '97416': { nom: 'Saint-Pierre', cp: '97436' },
+  '97417': { nom: 'Saint-Philippe', cp: '97450' },
+  '97418': { nom: 'Sainte-Marie', cp: '97460' },
+  '97419': { nom: 'Saint-Rose', cp: '97442' },
+  '97420': { nom: 'Saint-Suzanne', cp: '97410' },
+  '97421': { nom: 'Salazie', cp: '97433' },
+  '97422': { nom: 'Tampon', cp: '97413' },
+  '97423': { nom: 'Trois Bassins', cp: '97414' },
+  '97424': { nom: 'Cilaos', cp: '97429' }
+};
+
+    const CODE_TO_NOM = {};
+    const CODE_TO_CP = {};
+    for (const [code, data] of Object.entries(COMMUNES_DATA)) {
+      CODE_TO_NOM[code] = data.nom;
+      CODE_TO_CP[code] = data.cp;
+    }
+    const COMMUNE_CODES = Object.keys(COMMUNES_DATA).sort();
+
+    // ================================================================
+    // 2. STATISTIQUES IMMOBILIÈRES (DVF simulée)
+    // ================================================================
+    const STATS_IMMO = {
+      '97401': { prix_m2_moyen: 2800, nb_transactions: 120, surface_moyenne: 85, prix_median: 210000 },
+      '97402': { prix_m2_moyen: 2200, nb_transactions: 90,  surface_moyenne: 90, prix_median: 180000 },
+      '97403': { prix_m2_moyen: 2600, nb_transactions: 110, surface_moyenne: 75, prix_median: 195000 },
+      '97404': { prix_m2_moyen: 2400, nb_transactions: 70,  surface_moyenne: 80, prix_median: 185000 },
+      '97405': { prix_m2_moyen: 3100, nb_transactions: 150, surface_moyenne: 70, prix_median: 220000 },
+      '97406': { prix_m2_moyen: 2700, nb_transactions: 130, surface_moyenne: 65, prix_median: 180000 },
+      '97407': { prix_m2_moyen: 2500, nb_transactions: 200, surface_moyenne: 90, prix_median: 200000 },
+      '97408': { prix_m2_moyen: 2300, nb_transactions: 80,  surface_moyenne: 85, prix_median: 170000 },
+      '97409': { prix_m2_moyen: 2100, nb_transactions: 140, surface_moyenne: 95, prix_median: 190000 },
+      '97410': { prix_m2_moyen: 2200, nb_transactions: 160, surface_moyenne: 100, prix_median: 200000 },
+      '97411': { prix_m2_moyen: 3200, nb_transactions: 350, surface_moyenne: 65, prix_median: 230000 },
+      '97412': { prix_m2_moyen: 2600, nb_transactions: 180, surface_moyenne: 80, prix_median: 195000 },
+      '97413': { prix_m2_moyen: 1900, nb_transactions: 60,  surface_moyenne: 110, prix_median: 170000 },
+      '97414': { prix_m2_moyen: 2100, nb_transactions: 80,  surface_moyenne: 95, prix_median: 175000 },
+      '97415': { prix_m2_moyen: 2300, nb_transactions: 170, surface_moyenne: 100, prix_median: 210000 },
+      '97416': { prix_m2_moyen: 2700, nb_transactions: 150, surface_moyenne: 80, prix_median: 205000 },
+      '97417': { prix_m2_moyen: 2400, nb_transactions: 130, surface_moyenne: 85, prix_median: 190000 },
+      '97418': { prix_m2_moyen: 2800, nb_transactions: 220, surface_moyenne: 75, prix_median: 215000 },
+      '97419': { prix_m2_moyen: 2000, nb_transactions: 50,  surface_moyenne: 105, prix_median: 165000 },
+      '97420': { prix_m2_moyen: 2900, nb_transactions: 280, surface_moyenne: 70, prix_median: 220000 },
+      '97421': { prix_m2_moyen: 1600, nb_transactions: 30,  surface_moyenne: 120, prix_median: 140000 },
+      '97422': { prix_m2_moyen: 1500, nb_transactions: 25,  surface_moyenne: 130, prix_median: 135000 },
+      '97423': { prix_m2_moyen: 1700, nb_transactions: 35,  surface_moyenne: 115, prix_median: 150000 },
+      '97424': { prix_m2_moyen: 2000, nb_transactions: 60,  surface_moyenne: 100, prix_median: 170000 }
+    };
+
+    // ================================================================
+    // 3. CARTE
+    // ================================================================
+    const map = L.map('map', { center: [-21.1, 55.5], zoom: 10, zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 19
+    }).addTo(map);
+
+    let parcelleCluster = null;
+    let batimentCluster = null;
+    let transactionLayer = null;
+
+    // ================================================================
+    // 4. UTILITAIRES
+    // ================================================================
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = '⚠️ ' + msg;
+      el.style.display = 'block';
+      document.getElementById('loading').style.display = 'none';
+    }
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+
+    async function fetchJSON(url) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.warn(`❌ Échec : ${url} (status ${resp.status})`);
+          return null;
+        }
+        return await resp.json();
+      } catch (e) {
+        console.warn(`❌ Erreur pour ${url} :`, e);
+        return null;
+      }
+    }
+
+    function getParcelPoint(feature) {
+      const geom = feature.geometry;
+      if (!geom) return null;
+      if (geom.type === 'Point') {
+        const coords = geom.coordinates;
+        if (!coords || coords.length < 2) return null;
+        return { lat: coords[1], lng: coords[0] };
+      }
+      let rings = [];
+      if (geom.type === 'Polygon') {
+        rings = [geom.coordinates[0]];
+      } else if (geom.type === 'MultiPolygon') {
+        rings = geom.coordinates[0] ? [geom.coordinates[0][0]] : [];
+      } else {
+        return null;
+      }
+      if (rings.length === 0) return null;
+      const ring = rings[0];
+      if (!ring || ring.length === 0) return null;
+      let sumLat = 0, sumLng = 0, count = 0;
+      ring.forEach(coord => {
+        sumLat += coord[1];
+        sumLng += coord[0];
+        count++;
+      });
+      if (count === 0) return null;
+      return { lat: sumLat / count, lng: sumLng / count };
+    }
+
+    function formatSurface(value) {
+      if (value === undefined || value === null || value === '') return '0 ha';
+      if (typeof value === 'number') return (value / 10000).toFixed(2) + ' ha';
+      if (typeof value === 'string') {
+        const m = value.match(/(\d+)ha\s*(\d+)a\s*(\d+)ca/);
+        if (m) {
+          const ha = parseInt(m[1]) || 0;
+          const a = parseInt(m[2]) || 0;
+          const ca = parseInt(m[3]) || 0;
+          return (ha + a/100 + ca/10000).toFixed(2) + ' ha';
+        }
+        const num = parseFloat(value);
+        if (!isNaN(num)) return (num / 10000).toFixed(2) + ' ha';
+        return value;
+      }
+      return '0 ha';
+    }
+
+    function getAttr(feature, keys, fallback = '—') {
+      for (const key of keys) {
+        if (feature.properties && feature.properties[key] !== undefined && feature.properties[key] !== null) {
+          return feature.properties[key];
+        }
+      }
+      return fallback;
+    }
+
+    // ================================================================
+    // 5. GÉNÉRATION DES TRANSACTIONS
+    // ================================================================
+    function generateTransactions(code, points, stat) {
+      if (!points || points.length === 0) return [];
+      const nb = Math.min(stat.nb_transactions, points.length);
+      const shuffled = [...points].sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, nb);
+      const transactions = [];
+      selected.forEach(pt => {
+        const surface = Math.round(stat.surface_moyenne * (0.6 + 0.8 * Math.random()));
+        const prix_m2 = Math.round(stat.prix_m2_moyen * (0.7 + 0.6 * Math.random()));
+        const prix = prix_m2 * surface;
+        transactions.push({
+          code: code,
+          nom: CODE_TO_NOM[code],
+          code_postal: CODE_TO_CP[code] || '',
+          lat: pt.lat,
+          lng: pt.lng,
+          surface: surface,
+          prix: prix,
+          prix_m2: prix_m2,
+          type_local: Math.random() > 0.25 ? 'Appartement' : 'Maison'
+        });
+      });
+      return transactions;
+    }
+
+    // ================================================================
+    // 6. CHARGEMENT DES DONNÉES
+    // ================================================================
+    let currentParcelPoints = [];
+    let currentTransactions = [];
+
+    async function loadCommune(code) {
+      try {
+        document.getElementById('loading').style.display = 'flex';
+        document.getElementById('error-msg').style.display = 'none';
+
+        const baseParcelles = `data/communes_974/parcelles-${code}.json`;
+        const baseBatiments = `data/communes_974_batiments/batiments-${code}.json`;
+
+        const [parcellesData, batimentsData] = await Promise.all([
+          fetchJSON(baseParcelles),
+          fetchJSON(baseBatiments)
+        ]);
+
+        let parcelPoints = [];
+        if (parcellesData && parcellesData.features) {
+          parcelPoints = parcellesData.features
+            .map(f => getParcelPoint(f))
+            .filter(p => p !== null);
+        }
+        currentParcelPoints = parcelPoints;
+
+        const stat = STATS_IMMO[code];
+        currentTransactions = generateTransactions(code, parcelPoints, stat);
+
+        renderParcelles(parcellesData);
+        renderBatiments(batimentsData);
+        renderTransactions(currentTransactions);
+
+        document.getElementById('parcelleCount').textContent = parcellesData?.features?.length || 0;
+        document.getElementById('batimentCount').textContent = batimentsData?.features?.length || 0;
+        document.getElementById('transactionCount').textContent = currentTransactions.length;
+
+        updateKPIs(parcellesData, batimentsData, currentTransactions);
+        updateChart(currentTransactions);
+
+        document.getElementById('legend-container').style.display = 'block';
+        hideLoading();
+      } catch (err) {
+        showError(err.message);
+        console.error(err);
+      }
+    }
+
+    // ================================================================
+    // 7. RENDU DES COUCHES
+    // ================================================================
+    function renderParcelles(geojson) {
+      if (parcelleCluster) { map.removeLayer(parcelleCluster); parcelleCluster = null; }
+      const features = geojson?.features || [];
+      if (features.length === 0) return;
+      parcelleCluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 40 });
+      const markers = [];
+      features.forEach(f => {
+        const pt = getParcelPoint(f);
+        if (!pt) return;
+        const { lat, lng } = pt;
+        if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) return;
+        const icon = L.divIcon({
+          html: `<div style="width:10px;height:10px;border-radius:50%;background:#9e9e9e;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
+          className: '',
+          iconSize: [10,10],
+          iconAnchor: [5,5]
+        });
+        const section = getAttr(f, ['section_cadastrale', 'section'], '—');
+        const numero = getAttr(f, ['num_lot', 'numero', 'lot'], '—');
+        const surface = formatSurface(f.properties.surface_cadastrale ?? f.properties.contenance);
+        const popup = `<div>
+          <div style="font-weight:700;font-size:1rem;color:#1a3b5d;">Parcelle</div>
+          <div class="popup-row"><span class="label">Section :</span> <span class="value">${section}</span></div>
+          <div class="popup-row"><span class="label">Numéro :</span> <span class="value">${numero}</span></div>
+          <div class="popup-row"><span class="label">Surface :</span> <span class="value">${surface}</span></div>
+        </div>`;
+        markers.push(L.marker([lat, lng], { icon }).bindPopup(popup));
+      });
+      parcelleCluster.addLayers(markers);
+      if (document.getElementById('showParcelles').checked) {
+        map.addLayer(parcelleCluster);
+      }
+    }
+
+    function renderBatiments(geojson) {
+      if (batimentCluster) { map.removeLayer(batimentCluster); batimentCluster = null; }
+      const features = geojson?.features || [];
+      if (features.length === 0) return;
+      batimentCluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 40 });
+      const markers = [];
+      features.forEach(f => {
+        const pt = getParcelPoint(f);
+        if (!pt) return;
+        const { lat, lng } = pt;
+        if (typeof lat !== 'number' || typeof lng !== 'number' || !isFinite(lat) || !isFinite(lng)) return;
+        const icon = L.divIcon({
+          html: `<div style="width:12px;height:12px;border-radius:50%;background:#1e88e5;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
+          className: '',
+          iconSize: [12,12],
+          iconAnchor: [6,6]
+        });
+        const type = getAttr(f, ['type_batiment', 'type'], 'Inconnu');
+        const hauteur = getAttr(f, ['hauteur', 'hauteur_batiment'], '—');
+        const surfHab = getAttr(f, ['surface_habitable', 'surface_habitable_batiment'], '—');
+        const popup = `<div>
+          <div style="font-weight:700;font-size:1rem;color:#1a3b5d;">Bâtiment</div>
+          <div class="popup-row"><span class="label">Type :</span> <span class="value">${type}</span></div>
+          <div class="popup-row"><span class="label">Hauteur :</span> <span class="value">${hauteur} m</span></div>
+          <div class="popup-row"><span class="label">Surface habitable :</span> <span class="value">${surfHab} m²</span></div>
+        </div>`;
+        markers.push(L.marker([lat, lng], { icon }).bindPopup(popup));
+      });
+      batimentCluster.addLayers(markers);
+      if (document.getElementById('showBatiments').checked) {
+        map.addLayer(batimentCluster);
+      }
+    }
+
+    function renderTransactions(transactions) {
+      if (transactionLayer) { map.removeLayer(transactionLayer); transactionLayer = null; }
+      if (transactions.length === 0) return;
+      transactionLayer = L.layerGroup();
+      const markers = [];
+      transactions.forEach(t => {
+        const icon = L.divIcon({
+          html: `<div style="width:12px;height:12px;border-radius:50%;background:#e74c3c;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
+          className: '',
+          iconSize: [12,12],
+          iconAnchor: [6,6]
+        });
+        const popup = `<div>
+          <div style="font-weight:700;font-size:1rem;color:#1a3b5d;">${t.nom}</div>
+          <div class="popup-row"><span class="label">Code postal :</span> <span class="value">${t.code_postal}</span></div>
+          <div class="popup-row"><span class="label">Type :</span> <span class="value">${t.type_local}</span></div>
+          <div class="popup-row"><span class="label">Surface :</span> <span class="value">${t.surface} m²</span></div>
+          <div class="popup-row"><span class="label">Prix :</span> <span class="value">${t.prix.toLocaleString()} €</span></div>
+          <div class="popup-row"><span class="label">Prix / m² :</span> <span class="value">${t.prix_m2.toLocaleString()} €</span></div>
+        </div>`;
+        markers.push(L.marker([t.lat, t.lng], { icon }).bindPopup(popup));
+      });
+      transactionLayer.addLayer(L.layerGroup(markers));
+      if (document.getElementById('showTransactions').checked) {
+        map.addLayer(transactionLayer);
+      }
+    }
+
+    // ================================================================
+    // 8. CHECKBOXES
+    // ================================================================
+    document.getElementById('showParcelles').addEventListener('change', function() {
+      if (this.checked && parcelleCluster) map.addLayer(parcelleCluster);
+      else if (parcelleCluster) map.removeLayer(parcelleCluster);
+    });
+    document.getElementById('showBatiments').addEventListener('change', function() {
+      if (this.checked && batimentCluster) map.addLayer(batimentCluster);
+      else if (batimentCluster) map.removeLayer(batimentCluster);
+    });
+    document.getElementById('showTransactions').addEventListener('change', function() {
+      if (this.checked && transactionLayer) map.addLayer(transactionLayer);
+      else if (transactionLayer) map.removeLayer(transactionLayer);
+    });
+
+    // ================================================================
+    // 9. KPIs
+    // ================================================================
+    function updateKPIs(parcellesData, batimentsData, transactions) {
+      let nbParcelles = parcellesData?.features?.length || 0;
+      let nbBatiments = batimentsData?.features?.length || 0;
+      let nbTransactions = transactions.length;
+
+      let avgPrixM2 = 0, totalSurf = 0, totalPrix = 0;
+      if (transactions.length > 0) {
+        transactions.forEach(t => {
+          avgPrixM2 += t.prix_m2;
+          totalSurf += t.surface;
+          totalPrix += t.prix;
+        });
+        avgPrixM2 /= transactions.length;
+      }
+      const avgSurf = transactions.length > 0 ? totalSurf / transactions.length : 0;
+      const prixMedian = transactions.length > 0 ? totalPrix / transactions.length : 0;
+
+      document.getElementById('kpi-panel').style.display = 'grid';
+      document.getElementById('kpi-prix-m2').textContent = avgPrixM2 ? Math.round(avgPrixM2).toLocaleString() + ' €' : '—';
+      document.getElementById('kpi-transactions').textContent = nbTransactions.toLocaleString();
+      document.getElementById('kpi-surf-vente').textContent = avgSurf ? Math.round(avgSurf) + ' m²' : '—';
+      document.getElementById('kpi-prix-median').textContent = prixMedian ? Math.round(prixMedian).toLocaleString() + ' €' : '—';
+      document.getElementById('kpi-nb-parcelles').textContent = nbParcelles.toLocaleString();
+    }
+
+    // ================================================================
+    // 10. GRAPHIQUE
+    // ================================================================
+    let chartInstance = null;
+
+    function updateChart(transactions) {
+      const canvas = document.getElementById('chart-transactions');
+      const ctx = canvas.getContext('2d');
+      if (chartInstance) { chartInstance.destroy(); }
+
+      if (transactions.length === 0) {
+        document.getElementById('graph-panel').style.display = 'none';
+        return;
+      }
+
+      const prices = transactions.map(t => t.prix).sort((a,b) => a-b);
+      const bins = 6;
+      const min = Math.floor(prices[0] / 50000) * 50000;
+      const max = Math.ceil(prices[prices.length-1] / 50000) * 50000;
+      const step = (max - min) / bins;
+      const counts = new Array(bins).fill(0);
+      const labels = [];
+      for (let i = 0; i < bins; i++) {
+        const low = min + i * step;
+        const high = min + (i+1) * step;
+        labels.push(`${(low/1000).toFixed(0)}k-${(high/1000).toFixed(0)}k €`);
+        prices.forEach(p => { if (p >= low && p < high) counts[i]++; });
+      }
+
+      document.getElementById('graph-panel').style.display = 'block';
+      document.getElementById('graph-title').textContent = '📊 Répartition des transactions par tranche de prix';
+
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Nombre de transactions',
+            data: counts,
+            backgroundColor: 'rgba(42, 111, 151, 0.6)',
+            borderColor: 'rgba(42, 111, 151, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+        }
+      });
+    }
+
+    // ================================================================
+    // 11. INIT
+    // ================================================================
+    (function init() {
+      const select = document.getElementById('communeSelect');
+      select.innerHTML = '<option value="">Sélectionnez une commune</option>';
+      COMMUNE_CODES.forEach(code => {
+        const opt = document.createElement('option');
+        opt.value = code;
+        opt.textContent = `${CODE_TO_NOM[code]} (${CODE_TO_CP[code]})`;
+        select.appendChild(opt);
+      });
+
+      select.addEventListener('change', function(e) {
+        const code = e.target.value;
+        if (code) {
+          loadCommune(code);
+        }
+      });
+
+      select.value = '97411';
+      loadCommune('97411');
+    })();
+  </script>
+</body>
+</html>
